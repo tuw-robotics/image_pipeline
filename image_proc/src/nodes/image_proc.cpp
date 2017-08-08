@@ -61,7 +61,14 @@ int main(int argc, char **argv)
   int queue_size;
   if (private_nh.getParam("queue_size", queue_size))
     shared_params["queue_size"] = queue_size;
-
+  
+  XmlRpc::XmlRpcValue use_fisheye;
+  bool use_fisheye_model;
+  if (private_nh.getParam("use_fisheye_model", use_fisheye_model))
+  {
+    use_fisheye["use_fisheye_model"] = use_fisheye_model;
+  }
+  
   nodelet::Loader manager(false); // Don't bring up the manager ROS API
   nodelet::M_string remappings;
   nodelet::V_string my_argv;
@@ -73,7 +80,10 @@ int main(int argc, char **argv)
   // Rectify nodelet, image_mono -> image_rect
   std::string rectify_mono_name = ros::this_node::getName() + "_rectify_mono";
   if (shared_params.valid())
+  {
     ros::param::set(rectify_mono_name, shared_params);
+    ros::param::set("use_fisheye_model", use_fisheye);
+  }
   manager.load(rectify_mono_name, "image_proc/rectify", remappings, my_argv);
 
   // Rectify nodelet, image_color -> image_rect_color
@@ -82,7 +92,11 @@ int main(int argc, char **argv)
   remappings["image_rect"] = ros::names::resolve("image_rect_color");
   std::string rectify_color_name = ros::this_node::getName() + "_rectify_color";
   if (shared_params.valid())
+  {
     ros::param::set(rectify_color_name, shared_params);
+    ros::param::set("use_fisheye_model", use_fisheye);
+  }
+  
   manager.load(rectify_color_name, "image_proc/rectify", remappings, my_argv);
 
   // Check for only the original camera topics

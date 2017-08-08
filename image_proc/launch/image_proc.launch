@@ -3,6 +3,7 @@
 
   <arg name="manager" /> <!-- Must be globally qualified -->
   <arg name="respawn" default="false" />
+  <arg name="use_fisheye_model" default="false" />
   <!-- TODO Arguments for debayer, interpolation methods? -->
 
   <arg     if="$(arg respawn)" name="bond" value="" />
@@ -24,6 +25,7 @@
 	respawn="$(arg respawn)">
     <remap from="image_mono" to="image_color" />
     <remap from="image_rect" to="image_rect_color" />
+    <param name="use_fisheye_model" value="$(arg use_fisheye_model)" />
   </node>  
 
 </launch>

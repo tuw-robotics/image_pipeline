@@ -52,6 +52,7 @@ class RectifyNodelet : public nodelet::Nodelet
   boost::shared_ptr<image_transport::ImageTransport> it_;
   image_transport::CameraSubscriber sub_camera_;
   int queue_size_;
+  bool use_fisheye_model_;
   
   boost::mutex connect_mutex_;
   image_transport::Publisher pub_rect_;
@@ -84,6 +85,8 @@ void RectifyNodelet::onInit()
 
   // Read parameters
   private_nh.param("queue_size", queue_size_, 5);
+  nh.param("image_proc/use_fisheye_model", use_fisheye_model_, false);
+  //TODO possible wrong way to get parameter, but it works
 
   // Set up dynamic reconfigure
   reconfigure_server_.reset(new ReconfigureServer(config_mutex_, private_nh));
@@ -151,7 +154,25 @@ void RectifyNodelet::imageCb(const sensor_msgs::ImageConstPtr& image_msg,
     boost::lock_guard<boost::recursive_mutex> lock(config_mutex_);
     interpolation = config_.interpolation;
   }
-  model_.rectifyImage(image, rect, interpolation);
+  
+  if(use_fisheye_model_)
+  {
+    cv::Mat newCamMat;
+    cv::Size imageSize = image.size();
+    cv::Size newImageSize = cv::Size(imageSize.width * config_.image_size_multi, imageSize.height * config_.image_size_multi);
+    cv::Mat map1, map2;
+    
+    cv::fisheye::estimateNewCameraMatrixForUndistortRectify(model_.fullIntrinsicMatrix(), model_.distortionCoeffs(), imageSize, cv::Matx33d::eye(),
+      newCamMat, config_.balance, newImageSize, config_.fov_scale);
+    
+    cv::fisheye::initUndistortRectifyMap(model_.fullIntrinsicMatrix(), model_.distortionCoeffs(), cv::Matx33d::eye(), newCamMat, newImageSize, CV_16SC2, map1, map2);
+    
+    cv::remap(image, rect, map1, map2, cv::INTER_LINEAR);
+  }
+  else
+  {
+    model_.rectifyImage(image, rect, interpolation);
+  }
 
   // Allocate new rectified image message
   sensor_msgs::ImagePtr rect_msg = cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect).toImageMsg();
